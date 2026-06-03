@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>喵·专注</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{colors:{warm:{50:'#fdf6f0',100:'#f8eee8',200:'#f0dcd0',300:'#e8c8b8',400:'#d0a080',500:'#c08060',600:'#a07050'},rose:{100:'#fce8e0',200:'#f8d0c0',300:'#f0a090',400:'#e88870',500:'#d07050'}}}}}</script>
+<style>
+.cat-sprite{image-rendering:pixelated}
+.cat-icon{width:27px;height:27px;object-fit:contain;image-rendering:pixelated;display:inline-block;vertical-align:middle}
+.tab.bg-transparent .tab-icon{filter:grayscale(1) brightness(1.3);opacity:0.4;transform:scale(0.85);transition:all 0.3s}
+.tab-icon{width:21px;height:21px;object-fit:contain;image-rendering:pixelated;display:inline-block;vertical-align:middle;margin-right:2px}
+@keyframes coinUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-80px)}}
+.coin-fly{position:fixed;pointer-events:none;z-index:50;animation:coinUp 0.9s ease-out forwards}
+.debug-panel{display:none}.debug-panel.show{display:block}
+.drag-over{opacity:0.8!important;border-color:#e88870!important}
+.food-item{cursor:grab;user-select:none}
+/* Cat bed styles */
+.cat-bed{position:relative;text-align:center;cursor:pointer;transition:all 0.2s;padding-top:2px}
+.cat-bed{position:relative;text-align:center;cursor:pointer;transition:all 0.2s;padding-top:2px;min-height:140px;min-width:0}
+
+.cat-bed .cat-bed-img{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);z-index:1;width:130px;height:auto;object-fit:contain;image-rendering:pixelated}
+.cat-bed .cat-in-bed{position:absolute;bottom:0;left:50%;transform:translateX(-50%);z-index:3}
+.cat-bed .cat-thumb-bed{width:120px;height:120px;object-fit:contain;display:block;transform:scale(1.6);transform-origin:bottom center;filter:drop-shadow(0 2px 10px rgba(100,70,50,0.2))}
+.cat-bed .bed-label{position:absolute;top:0;left:4px;z-index:5;text-align:left;line-height:1}
+.cat-bed .fullness-bed{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);z-index:4;width:100px;background:rgba(255,252,250,0.85);border-radius:10px;padding:2px 8px;backdrop-filter:blur(4px);border:0.5px solid rgba(200,180,165,0.2)}
+.cat-card{display:flex;flex-direction:column;min-height:140px}
+</style>
+</head>
+<body class="bg-gradient-to-b from-warm-100 to-warm-200 min-h-screen flex items-center justify-center p-4 font-sans antialiased text-warm-800">
+
+<div id="app" class="w-[380px] max-w-full relative">
+
+<!-- Plus Menu -->
+<div id="plus-menu" style="position:fixed;top:16px;right:16px;z-index:60">
+  <button id="plus-btn" onclick="var m=document.getElementById('plus-items');m.style.display=m.style.display==='none'?'flex':'none'" style="width:44px;height:44px;background:rgba(255,255,255,0.9);backdrop-filter:blur(20px);border-radius:50%;box-shadow:0 2px 12px rgba(180,140,120,0.15);border:0.5px solid rgba(200,180,165,0.2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:300;cursor:pointer;color:#a08070;transition:all 0.2s">+</button>
+  <div id="plus-items" style="display:none;position:absolute;top:50px;right:0;background:rgba(255,255,255,0.92);backdrop-filter:blur(20px);border-radius:16px;padding:8px;box-shadow:0 8px 30px rgba(180,140,120,0.12);border:0.5px solid rgba(200,180,165,0.15);flex-direction:column;gap:2px;min-width:140px">
+    <button onclick="this.parentElement.style.display='none';toggleDebug()" style="padding:8px 12px;border:none;border-radius:10px;background:transparent;color:#3d2c2c;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;width:100%"><span style="font-size:16px">🔧</span> 调试面板</button>
+    <button onclick="this.parentElement.style.display='none';this.parentElement.style.display='none';showStats()" style="padding:8px 12px;border:none;border-radius:10px;background:transparent;color:#3d2c2c;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;width:100%"><span style="font-size:16px">📊</span> 统计报表</button>
+    <button onclick="this.parentElement.style.display='none';this.parentElement.style.display='none';showStats()" style="padding:8px 12px;border:none;border-radius:10px;background:transparent;color:#3d2c2c;font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:inherit;width:100%"><span style="font-size:16px">⚙️</span> 设置</button>
+  </div>
+</div>
+
+
+  <!-- Main page -->
+  <div id="page-main" class="block">
+    <div class="bg-white/90 backdrop-blur-xl rounded-[28px] p-7 pb-6 shadow-[0_4px_30px_rgba(180,140,120,0.12)] border border-warm-200/40">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <img class="cat-icon" src="stages/cat_icon.png">
+          <span class="text-lg font-bold tracking-tight">专注<span class="text-rose-500">·养猫</span></span>
+        </div>
+        <div class="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-rose-50 px-3.5 py-1.5 rounded-full text-sm font-bold text-rose-600 shadow-sm border border-rose-200/30">🪙<span id="coin-amount">0</span></div>
+      </div>
+      <div class="text-center mb-2">
+        <div class="w-[200px] h-[200px] mx-auto rounded-full bg-[radial-gradient(ellipse_at_50%_40%,#fdf0ea,#f8e4da)] flex items-center justify-center shadow-[inset_0_-6px_16px_rgba(180,120,90,0.06),inset_0_4px_8px_rgba(255,240,230,0.6)]">
+          <img id="cat-img" src="stages/加菲猫.png" class="w-[150px] h-[150px] object-contain cat-sprite drop-shadow-[0_4px_16px_rgba(180,120,90,0.2)]">
+        </div>
+        <div class="text-lg font-bold mt-1.5" id="cat-name">小橘</div>
+        <div class="text-xs text-warm-400 mt-0.5" id="cat-status">❤️ 陪伴中 · 喂食 0 次</div>
+        <div class="flex items-center justify-center gap-1 mt-1" id="cat-fullness-bar"></div>
+      </div>
+      <div class="text-center my-2">
+        <div class="text-5xl font-extralight tracking-[5px] tabular-nums leading-tight" id="timer-display">00:00:00</div>
+        <div class="text-xs text-warm-400 font-medium mt-0.5">⚡ 专注 15 秒 = 🪙 1 金币</div>
+        <div class="flex gap-2 justify-center mt-2.5">
+          <button class="px-6 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow-[0_2px_12px_rgba(200,100,70,0.25)] hover:shadow-[0_4px_20px_rgba(200,100,70,0.35)] transition-all active:scale-95 min-w-[100px]" id="btn-start">开始专注</button>
+          <button class="px-6 py-2 rounded-full text-sm font-semibold bg-warm-100 text-warm-500 transition-all active:scale-95 hidden" id="btn-pause">⏸ 暂停</button>
+          <button class="text-warm-400 hover:text-rose-500 text-base px-3 py-2 transition-all active:scale-95" id="btn-reset">✓</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-3.5 pt-3.5 border-t border-warm-200/40">
+        <div class="text-center"><div class="text-xl font-bold" id="stat-today">0</div><div class="text-[10px] text-warm-400">今日专注(分)</div></div>
+        <div class="text-center"><div class="text-xl font-bold" id="stat-total">0</div><div class="text-[10px] text-warm-400">总专注(分)</div></div>
+        <div class="text-center"><div class="text-xl font-bold" id="stat-streak">0</div><div class="text-[10px] text-warm-400">连续天数</div></div>
+      </div>
+      <div class="mt-3 p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200/30 debug-panel" id="debug-panel">
+        <div class="text-xs font-semibold text-rose-500 mb-2 tracking-wider uppercase">🔧 调试</div>
+        <div class="flex gap-1.5 mb-1.5 items-center flex-wrap">
+          <input class="flex-1 min-w-[60px] px-2.5 py-1.5 border border-rose-200/40 rounded-xl text-sm bg-white outline-none focus:border-rose-400" id="debug-input" type="number" min="0" value="0">
+          <button class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-rose-400 to-rose-500 text-white" id="debug-add-coins">+🪙</button>
+          <button class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-warm-200 text-warm-600" id="debug-add-10m">+10分</button>
+          <button class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-warm-200 text-warm-600" id="debug-add-60m">+1h</button>
+          <button class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-100 text-rose-500" id="debug-reset">重置</button>
+        </div>
+        <div class="text-[10px] text-warm-400 text-center">⌘D / 三击猫咪</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop -->
+  <div id="page-shop" class="hidden">
+    <div class="bg-white/90 backdrop-blur-xl rounded-[28px] p-6 pb-5 shadow-[0_4px_30px_rgba(180,140,120,0.12)] border border-warm-200/40">
+      <div class="text-lg font-bold text-center mb-3.5"><img class="cat-icon" src="stages/cat_icon.png">猫咪商店</div>
+      <div class="flex gap-1.5 mb-3.5 justify-center" id="shop-tabs"></div>
+      <div class="grid grid-cols-2 gap-3" id="shop-grid"></div>
+    </div>
+  </div>
+
+  <!-- Cattery -->
+  <div id="page-collect" class="hidden">
+    <div class="bg-white/90 backdrop-blur-xl rounded-[28px] p-5 pb-4 pt-20 shadow-[0_4px_30px_rgba(180,140,120,0.12)] border border-warm-200/40 relative">
+      <div class="absolute top-0 left-0 right-0 h-2 z-10" style="background:repeating-linear-gradient(90deg,#dcc4b4 0,#dcc4b4 18px,#d4bcac 18px,#d4bcac 20px,#e8d8cc 20px,#e8d8cc 38px,#d4bcac 38px,#d4bcac 40px)"></div>
+      <div class="text-lg font-bold text-center mt-2 mb-3 relative z-10"><img class="tab-icon" src="stages/house.png">猫舍</div>
+      <div class="grid grid-cols-2 gap-x-2 gap-y-3 relative z-10" id="collect-grid"></div>
+    </div>
+  </div>
+
+  
+  <!-- Stats -->
+  <div id="page-stats" class="hidden">
+    <div class="bg-white/90 backdrop-blur-xl rounded-[28px] p-6 pb-5 shadow-[0_4px_30px_rgba(180,140,120,0.12)] border border-warm-200/40">
+      <div class="text-lg font-bold text-center mb-4">📊 统计报表</div>
+      <div id="stats-chart" style="text-align:center;margin-bottom:16px">
+        <canvas id="ring-chart" width="200" height="200" style="display:block;margin:0 auto"></canvas>
+      </div>
+      <div id="stats-data" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
+  
+<!-- Floating food button -->
+  <div id="food-float" style="position:fixed;bottom:90px;right:16px;z-index:50">
+    <button id="food-btn" onclick="var p=this.nextElementSibling;p.style.display=p.style.display==='none'?'block':'none';renderFloatFood()" style="width:48px;height:48px;background:rgba(255,255,255,0.9);backdrop-filter:blur(20px);border-radius:50%;box-shadow:0 4px 12px rgba(180,140,120,0.15);border:0.5px solid rgba(200,180,165,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer">🍚</button>
+    <div id="food-panel" style="display:none;position:absolute;bottom:56px;right:0;background:rgba(255,255,255,0.9);backdrop-filter:blur(20px);border-radius:16px;padding:12px;box-shadow:0 8px 30px rgba(180,140,120,0.12);border:0.5px solid rgba(200,180,165,0.15);min-width:150px">
+      <div style="font-size:10px;font-weight:600;color:#a08070;margin-bottom:6px">🍚 食物库存</div>
+      <div id="float-food-items" style="display:flex;flex-direction:column;gap:4px"><div style="font-size:11px;color:#b09080;font-style:italic">还没有食物</div></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex mt-2.5 bg-white/70 backdrop-blur-xl rounded-[60px] p-0.5 shadow-[0_2px_10px_rgba(180,140,120,0.06)]">
+    <button class="tab flex-1 py-3 rounded-[60px] text-sm font-semibold transition-all duration-300 bg-white text-rose-500 shadow-[0_1px_6px_rgba(180,140,120,0.08)]" data-page="page-main"><img class="tab-icon" src="stages/cat_icon.png">陪伴</button>
+    <button class="tab flex-1 py-3 rounded-[60px] text-sm font-semibold transition-all duration-300 bg-transparent text-warm-400" data-page="page-shop"><img class="tab-icon" src="stages/store.png">商店</button>
+    <button class="tab flex-1 py-3 rounded-[60px] text-sm font-semibold transition-all duration-300 bg-transparent text-warm-400" data-page="page-collect"><img class="tab-icon" src="stages/house.png">猫舍</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+// Data
+// ═══════════════════════════════════
+var CATS = [
+  { id:'cat_0', name:'小橘', breed:'加菲猫', img:'stages/加菲猫.png', price:0, owned:true },
+  { id:'cat_1', name:'小雪', breed:'白猫', img:'stages/白猫.png', price:30 },
+  { id:'cat_2', name:'小墨', breed:'黑猫', img:'stages/黑猫.png', price:60 },
+  { id:'cat_3', name:'小花', breed:'暹罗猫', img:'stages/暹罗猫1.png', price:120 },
+  { id:'cat_4', name:'小布', breed:'布偶猫', img:'stages/布偶猫.png', price:240 },
+  { id:'cat_5', name:'小银', breed:'银渐层', img:'stages/银渐层.png', price:480 },
+  { id:'cat_6', name:'小缅', breed:'缅因猫', img:'stages/缅因猫1.png', price:960 },
+  { id:'cat_7', name:'小暹', breed:'暹罗猫', img:'stages/暹罗猫2.png', price:1920 },
+];
+var FOOD = [
+  { id:'food_1', name:'普通猫粮', emoji:'🍚', price:10, fill:20 },
+  { id:'food_2', name:'高级猫粮', emoji:'🥩', price:50, fill:40 },
+  { id:'food_3', name:'鲜鱼套餐', emoji:'🐟', price:200, fill:80 },
+];
+var DECAY_MS = 5 * 60 * 1000;
+
+// ═══════════════════════════════════
+// State
+// ═══════════════════════════════════
+var S = {
+  coins:0, totalMin:0, streak:0, lastDate:'',
+  ownedCats:['cat_0'], activeCat:'cat_0', feedCount:0,
+  catNames:{'cat_0':'小橘'}, catFullness:{'cat_0':100},
+  food:{'food_1':0,'food_2':0,'food_3':0}, lastTick:Date.now()
+};
+var T = { run:0, pau:0, sec:0, start:null, pSec:0 };
+var todayMin = 0;
+var catPage = 0;
+var shopCatPage = 0;
+
+// ═══════════════════════════════════
+// Utilities
+// ═══════════════════════════════════
+var $ = function(id) { return document.getElementById(id); };
+var fm = function(s) { var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=s%60; return (h<10?'0':'')+h+':'+(m<10?'0':'')+m+':'+(x<10?'0':'')+x; };
+
+function sv() { localStorage.setItem('cat_v9', JSON.stringify(S)); }
+function ld() {
+  var r = localStorage.getItem('cat_v9');
+  if (r) try { var d = JSON.parse(r); for (var k in d) S[k] = d[k]; } catch(e) {}
+  var t = new Date().toISOString().slice(0,10);
+  if (S.lastDate !== t && S.lastDate !== '') {
+    var y = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    if (S.lastDate !== y) S.streak = 0;
+    todayMin = 0;
+  }
+}
+
+function toast(e, t) {
+  var ct = document.getElementById('tt');
+  if (!ct) { ct = document.createElement('div'); ct.id='tt'; ct.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;pointer-events:none'; document.body.appendChild(ct); }
+  var d = document.createElement('div');
+  d.style.cssText='background:rgba(255,252,250,0.85);backdrop-filter:blur(20px);border-radius:24px;padding:20px 28px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.06);border:0.5px solid rgba(200,170,150,0.1);opacity:0;transform:scale(0.85);transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);pointer-events:auto';
+  d.innerHTML='<div style="font-size:40px;margin-bottom:6px">'+e+'</div><div style="font-size:15px;font-weight:600;color:#3d2c2c">'+t+'</div><button style="margin-top:10px;background:linear-gradient(135deg,#e88870,#d07050);color:#fff;border:none;border-radius:40px;padding:8px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">太好了！</button>';
+  ct.appendChild(d);
+  requestAnimationFrame(function(){d.style.opacity='1';d.style.transform='scale(1)';});
+  d.querySelector('button').onclick=function(){d.style.opacity='0';d.style.transform='scale(0.85)';setTimeout(function(){d.remove()},400);};
+}
+
+// ═══════════════════════════════════
+// Fullness system
+// ═══════════════════════════════════
+function updateFullness() {
+  var now = Date.now(), elapsed = now - S.lastTick;
+  if (elapsed < DECAY_MS) return;
+  var lost = Math.floor(elapsed / DECAY_MS);
+  if (lost <= 0) return;
+  for (var i=0; i<S.ownedCats.length; i++) {
+    var cid = S.ownedCats[i];
+    if (S.catFullness[cid] === undefined) S.catFullness[cid] = 100;
+    S.catFullness[cid] = Math.max(0, (S.catFullness[cid]||100) - lost);
+  }
+  S.lastTick = now;
+  sv();
+}
+
+function feedCat(catId, foodId) {
+  if (!S.ownedCats.includes(catId) || !S.food[foodId] || S.food[foodId] <= 0) return;
+  var food = null; for (var i=0; i<FOOD.length; i++) { if (FOOD[i].id === foodId) { food = FOOD[i]; break; } }
+  if (!food) return;
+  S.food[foodId]--;
+  S.feedCount++;
+  if (S.catFullness[catId] === undefined) S.catFullness[catId] = 100;
+  S.catFullness[catId] = Math.min(100, (S.catFullness[catId]||100) + food.fill);
+  sv(); updateMain(); renderCollect(); renderFloatFood();
+}
+function handleDrop(e, catId) { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); var foodId = e.dataTransfer.getData('text/plain'); if (foodId) feedCat(catId, foodId); }
+
+// ═══════════════════════════════════
+// Main page
+// ═══════════════════════════════════
+function updateMain() {
+  updateFullness();
+  var c = null; for (var i=0; i<CATS.length; i++) { if (CATS[i].id === S.activeCat) { c = CATS[i]; break; } } if (!c) c = CATS[0];
+  $('coin-amount').textContent = S.coins;
+  $('cat-img').src = c.img;
+  $('cat-name').textContent = S.catNames[c.id] || c.name;
+  $('cat-status').textContent = '❤️ 陪伴中 · 喂食 '+S.feedCount+' 次';
+  $('timer-display').textContent = fm(T.sec);
+  $('stat-today').textContent = todayMin;
+  $('stat-total').textContent = S.totalMin;
+  $('stat-streak').textContent = S.streak;
+  var f = S.catFullness[S.activeCat] !== undefined ? S.catFullness[S.activeCat] : 100;
+  var c2 = f > 60 ? 'bg-emerald-400' : (f > 30 ? 'bg-amber-400' : 'bg-rose-400');
+  $('cat-fullness-bar').innerHTML = '<span class="text-[10px] text-warm-400">🍖</span><div class="w-20 h-2 bg-warm-200 rounded-full overflow-hidden"><div class="h-full '+c2+' rounded-full transition-all duration-500" style="width:'+f+'%"></div></div><span class="text-[10px] text-warm-400 font-medium">'+f+'%</span>';
+}
+
+// ═══════════════════════════════════
+// Shop
+// ═══════════════════════════════════
+
+function showStats() {
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('bg-white','text-rose-500','shadow-[0_1px_6px_rgba(180,140,120,0.08)]');t.classList.add('bg-transparent','text-warm-400');});
+  document.querySelectorAll('[id^=page-]').forEach(function(p){p.classList.add('hidden');});
+  $('page-stats').classList.remove('hidden');
+  renderStats();
+}
+function renderStats() {
+  var today = new Date().toISOString().slice(0,10);
+  var todayFocus = S.dailyData && S.dailyData[today] ? S.dailyData[today] : 0;
+  var goal = 120;
+  var pct = Math.min(100, todayFocus * 100 / goal);
+  var c = document.getElementById('ring-chart');
+  if (c) {
+    var ctx = c.getContext('2d');
+    ctx.clearRect(0,0,200,200);
+    ctx.beginPath(); ctx.arc(100,100,80,0,Math.PI*2); ctx.strokeStyle='rgba(200,180,165,0.15)'; ctx.lineWidth=18; ctx.stroke();
+    ctx.beginPath(); ctx.arc(100,100,80,-Math.PI/2, -Math.PI/2 + Math.PI*2*pct/100); ctx.strokeStyle='#e88870'; ctx.lineWidth=18; ctx.lineCap='round'; ctx.stroke();
+    ctx.fillStyle='#3d2c2c'; ctx.font='bold 28px -apple-system,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(Math.floor(todayFocus)+'分',100,90);
+    ctx.fillStyle='#a08070'; ctx.font='14px -apple-system,sans-serif'; ctx.fillText('今日专注',100,120);
+  }
+  var weekTotal = 0;
+  if (S.dailyData) {
+    for (var k in S.dailyData) {
+      var d = new Date(k); var now2 = new Date();
+      if ((now2 - d) / 86400000 < 7) weekTotal += S.dailyData[k];
+    }
+  }
+  var h = '';
+  h += '<div style="background:#faf5f0;border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between"><span style="color:#a08070;font-size:13px">今日专注</span><span style="font-weight:700;color:#3d2c2c;font-size:15px">'+todayFocus+' 分钟</span></div>';
+  h += '<div style="background:#faf5f0;border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between"><span style="color:#a08070;font-size:13px">本周合计</span><span style="font-weight:700;color:#3d2c2c;font-size:15px">'+weekTotal+' 分钟</span></div>';
+  h += '<div style="background:#faf5f0;border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between"><span style="color:#a08070;font-size:13px">总专注</span><span style="font-weight:700;color:#3d2c2c;font-size:15px">'+S.totalMin+' 分钟</span></div>';
+  h += '<div style="background:#faf5f0;border-radius:16px;padding:12px 16px;display:flex;justify-content:space-between"><span style="color:#a08070;font-size:13px">目标进度</span><span style="font-weight:700;color:#e88870;font-size:15px">'+Math.floor(pct)+'%</span></div>';
+  $('#stats-data').innerHTML = h;
+}
+var shopTab = 'cats';
+function renderShop() {
+  var a = (shopTab==='cats'?'bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow':'bg-warm-100 text-warm-500');
+  var b = (shopTab==='food'?'bg-gradient-to-r from-rose-400 to-rose-500 text-white shadow':'bg-warm-100 text-warm-500');
+  $('shop-tabs').innerHTML = '<button class="px-3 py-1 rounded-full text-[11px] font-semibold transition-all '+a+'" data-tab="cats"><img class="tab-icon" src="stages/cat_icon.png">猫咪</button><button class="px-3 py-1 rounded-full text-[11px] font-semibold transition-all '+b+'" data-tab="food">🍚 猫粮</button>';
+  var btns = document.querySelectorAll('#shop-tabs button');
+  for (var i=0; i<btns.length; i++) { (function(t){ t.onclick = function(){ shopTab=t.dataset.tab; renderShop(); }; })(btns[i]); }
+  
+  if (shopTab === 'cats') {
+    var h = '';
+    var sp = shopCatPage*6; var se = Math.min(sp+6, CATS.length); var st = Math.ceil(CATS.length/6);
+    for (var i=sp; i<se; i++) {
+      var c = CATS[i];
+      var owned = S.ownedCats.includes(c.id);
+      h += '<div class="bg-warm-50 rounded-[14px] p-1.5 text-center border border-warm-200/20 hover:bg-warm-100 transition-all active:scale-95">';
+      h += '<img class="w-14 h-14 object-contain cat-sprite mx-auto mb-1" src="'+c.img+'">';
+      h += '<div class="text-sm font-semibold">'+c.breed+'</div>';
+      h += '<div class="text-xs text-rose-500 font-semibold mt-0.5">'+(c.price===0?'免费':'🪙 '+c.price)+'</div>';
+      h += (S.coins>=c.price ? '<button class="mt-2 px-4 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-rose-400 to-rose-500 text-white" data-buy="'+c.id+'">领养</button>' : '<div class="text-[10px] text-rose-300 mt-1">金币不足</div>');
+      h += '</div>';
+    }
+    var pg = '<div style="grid-column:1/-1;display:flex;justify-content:center;gap:8px;margin-top:8px">';
+    if (shopCatPage > 0) pg += '<button onclick="shopCatPage--;renderShop()" style="padding:4px 12px;border:none;border-radius:60px;background:linear-gradient(135deg,#e88870,#d07050);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">‹ 上一页</button>';
+    pg += '<span style="font-size:11px;color:#a08070;align-self:center">'+(shopCatPage+1)+'/'+st+'</span>';
+    if (shopCatPage < st-1) pg += '<button onclick="shopCatPage++;renderShop()" style="padding:4px 12px;border:none;border-radius:60px;background:linear-gradient(135deg,#e88870,#d07050);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">下一页 ›</button>';
+    pg += '</div>';
+    $('shop-grid').innerHTML = h + pg;
+    var bs = document.querySelectorAll('[data-buy]');
+    for (var i=0; i<bs.length; i++) { (function(b){ b.onclick = function(){ buyCat(b.dataset.buy); }; })(bs[i]); }
+  } else {
+    var h = '';
+    for (var i=0; i<FOOD.length; i++) {
+      var f = FOOD[i];
+      var o = S.food[f.id] || 0;
+      h += '<div class="bg-warm-50 rounded-2xl p-4 text-center border border-warm-200/20">';
+      h += '<div style="font-size:40px;margin-bottom:4px">'+f.emoji+'</div>';
+      h += '<div class="text-sm font-semibold">'+f.name+'</div>';
+      h += '<div class="text-xs text-warm-400">+'+f.fill+' 饱腹</div>';
+      h += '<div class="text-xs text-rose-500 font-semibold mt-0.5">🪙 '+f.price+'</div>';
+      if (o) h += '<div class="text-[10px] text-emerald-500 mt-1">库存 ×'+o+'</div>';
+      h += (S.coins>=f.price ? '<button class="mt-2 px-4 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-rose-400 to-rose-500 text-white" data-food="'+f.id+'">购买</button>' : '<div class="text-[10px] text-rose-300 mt-1">金币不足</div>');
+      h += '</div>';
+    }
+    $('shop-grid').innerHTML = h;
+    var fs = document.querySelectorAll('[data-food]');
+    for (var i=0; i<fs.length; i++) { (function(b){ b.onclick = function(){ buyFood(b.dataset.food); }; })(fs[i]); }
+  }
+}
+
+function buyCat(id) {
+  var c = null; for (var i=0; i<CATS.length; i++) { if (CATS[i].id === id) { c = CATS[i]; break; } }
+  if (!c || S.coins < c.price) return;
+  var n = prompt('给它起个名字 🐱', c.name);
+  S.catNames[id] = (n && n.trim()) ? n.trim() : c.name;
+  if (!S.ownedCats.includes(id)) {
+    S.coins -= c.price;
+    S.ownedCats.push(id);
+    S.activeCat = id;
+    S.catFullness[id] = 100;
+    sv(); updateMain(); renderShop(); renderCollect();
+    toast('🐱', S.catNames[id]+' 来到你家啦！');
+  } else {
+    S.coins -= c.price;
+    S.activeCat = id;
+    sv(); updateMain(); renderShop();
+    toast('🐱', S.catNames[id]+' 已是伙伴，设为当前陪伴');
+  }
+}
+
+function buyFood(id) {
+  var f = null; for (var i=0; i<FOOD.length; i++) { if (FOOD[i].id === id) { f = FOOD[i]; break; } }
+  if (!f || S.coins < f.price) return;
+  S.coins -= f.price;
+  S.food[f.id] = (S.food[f.id]||0) + 1;
+  sv(); updateMain(); renderShop();
+  toast('🍚', f.name+' +1');
+}
+
+// ═══════════════════════════════════
+// Cattery
+// ═══════════════════════════════════
+function renderCollect() {
+  updateFullness();
+  var h = '';
+  var pg = catPage * 6;
+  var end = Math.min(pg + 6, CATS.length);
+  var tp = Math.ceil(CATS.length / 6);
+  
+  for (var i = pg; i < end; i++) {
+    var c = CATS[i];
+    var o = S.ownedCats.includes(c.id);
+    var nm = o ? (S.catNames[c.id] || c.name) : '???';
+    var act = o && S.activeCat === c.id;
+    var f = o ? (S.catFullness[c.id] !== undefined ? S.catFullness[c.id] : 100) : 0;
+    var fc = f > 60 ? 'bg-emerald-400' : (f > 30 ? 'bg-amber-400' : 'bg-rose-400');
+    var ba = act ? 'border-rose-400 shadow-[0_3px_12px_rgba(200,100,70,0.1)]' : '';
+    var img = o ? '<img class="cat-thumb-bed" src="'+c.img+'">' : '';
+    var fh = o ? '<div class="flex items-center justify-center gap-1 fullness-bed"><span class="text-[9px]">🍖</span><div class="w-14 h-1.5 bg-warm-200 rounded-full overflow-hidden"><div class="h-full '+fc+' rounded-full transition-all duration-500" style="width:'+f+'%"></div></div><span class="text-[9px] text-warm-400">'+f+'%</span></div>' : '';
+    
+    h += '<div class="cat-card">';
+    h += '<div class="cat-bed '+ba+'" data-id="'+(o?c.id:'')+'" ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="handleDrop(event,\''+c.id+'\')">';
+    h += '<img class="cat-bed-img" src="stages/neet.png">';
+    h += '<div class="cat-in-bed">'+img+fh+'</div>';
+    h += '<div class="bed-label"><div class="text-sm font-semibold">'+(act?'✦ ':'')+nm+'</div><div class="text-[10px] text-warm-400">'+(o?c.breed:'')+'</div></div>';
+    h += '</div></div>';
+  }
+  
+  // Pagination
+  var pag = '<div style="grid-column:1/-1;display:flex;justify-content:center;gap:8px;margin-top:4px">';
+  if (catPage > 0) pag += '<button onclick="catPage--;renderCollect()" style="padding:4px 14px;border:none;border-radius:60px;background:linear-gradient(135deg,#e88870,#d07050);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">‹ 上一页</button>';
+  pag += '<span style="font-size:12px;color:#a08070;align-self:center">'+(catPage+1)+'/'+tp+'</span>';
+  if (catPage < tp-1) pag += '<button onclick="catPage++;renderCollect()" style="padding:4px 14px;border:none;border-radius:60px;background:linear-gradient(135deg,#e88870,#d07050);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">下一页 ›</button>';
+  pag += '</div>';
+  
+  $('collect-grid').innerHTML = h + pag;
+  
+  var es = document.querySelectorAll('#collect-grid [data-id]');
+  for (var i=0; i<es.length; i++) {
+    (function(e){ e.onclick = function(){ if (e.dataset.id) { S.activeCat = e.dataset.id; sv(); updateMain(); renderCollect(); } }; })(es[i]);
+  }
+}
+
+// ═══════════════════════════════════
+// Floating food
+// ═══════════════════════════════════
+function renderFloatFood() {
+  var el = document.getElementById('float-food-items');
+  if (!el) return;
+  var hasFood = false; for (var k in S.food) { if (S.food[k] > 0) { hasFood = true; break; } }
+  if (!hasFood) { el.innerHTML = '<div style="font-size:11px;color:#b09080;font-style:italic">还没有食物</div>'; return; }
+  var h = '';
+  for (var i=0; i<FOOD.length; i++) {
+    var f = FOOD[i]; var q = S.food[f.id] || 0; if (q <= 0) continue;
+    h += '<div class="food-item" draggable="true" data-food="'+f.id+'" style="background:white;border-radius:10px;padding:4px 10px;border:0.5px solid rgba(200,180,165,0.2);display:flex;align-items:center;gap:6px;font-size:11px;cursor:grab">'+f.emoji+' <span style="font-weight:600">'+f.name+'</span> <span style="color:#c07040;font-weight:bold">×'+q+'</span></div>';
+  }
+  el.innerHTML = h;
+  var items = el.querySelectorAll('.food-item[draggable]');
+  for (var i=0; i<items.length; i++) { (function(e){ e.addEventListener('dragstart', function(ev) { ev.dataTransfer.setData('text/plain', e.dataset.food); }); })(items[i]); }
+}
+
+// ═══════════════════════════════════
+// Timer
+// ═══════════════════════════════════
+var raf = null, pt = null;
+function tick() { if (T.run && !T.pau) { T.sec = Math.floor((Date.now()-T.start)/1000)+T.pSec; updateMain(); raf = requestAnimationFrame(tick); } }
+function start() {
+  if (T.pau) { T.run=1; T.pau=0; T.start=Date.now(); $('btn-start').style.display='none'; $('btn-pause').style.display='inline'; raf=requestAnimationFrame(tick); pt=setInterval(sp, 400); return; }
+  if (!T.run) { T.run=1; T.pau=0; T.start=Date.now(); T.pSec=0; $('btn-start').style.display='none'; $('btn-pause').style.display='inline'; raf=requestAnimationFrame(tick); pt=setInterval(sp, 400); }
+}
+function pause() { if (T.run&&!T.pau) { T.pau=1; T.pSec=T.sec; if(raf)cancelAnimationFrame(raf); if(pt)clearInterval(pt); $('btn-start').style.display='inline'; $('btn-start').textContent='继续'; $('btn-pause').style.display='none'; updateMain(); } }
+function complete() {
+  if (T.sec < 30) { T.run=0; T.pau=0; T.sec=0; T.start=null; T.pSec=0; if(raf)cancelAnimationFrame(raf); if(pt)clearInterval(pt); $('btn-start').style.display='inline'; $('btn-start').textContent='开始专注'; $('btn-pause').style.display='none'; updateMain(); return; }
+  var m=Math.floor(T.sec/60), coins=Math.floor(T.sec/15);
+  S.coins+=coins; S.totalMin+=m; todayMin+=m;
+  var t = new Date().toISOString().slice(0,10);
+  if (S.lastDate !== t) { var y=new Date(Date.now()-86400000).toISOString().slice(0,10); S.streak=(S.lastDate===y||S.lastDate==='')?S.streak+1:1; S.lastDate=t; }
+  sv(); spawnCoins(coins);
+  T.run=0; T.pau=0; T.sec=0; T.start=null; T.pSec=0;
+  if(raf)cancelAnimationFrame(raf); if(pt)clearInterval(pt);
+  $('btn-start').style.display='inline'; $('btn-start').textContent='开始专注'; $('btn-pause').style.display='none';
+  updateMain();
+}
+function sp() {
+  var d=document.createElement('div'); d.style.cssText='position:fixed;width:1px;height:1px;left:'+(170+Math.random()*180)+'px;top:320px;opacity:0.3;border-radius:50%;background:linear-gradient(135deg,#f0d0b8,transparent);pointer-events:none;z-index:10';
+  document.body.appendChild(d); var s=performance.now();
+  function a(n){var d2=(n-s)/1000;if(d2>1.5){d.remove();return;}d.style.transform='translateY('+(-d2*60)+'px)';d.style.opacity=0.3*(1-d2/1.5);requestAnimationFrame(a);}
+  requestAnimationFrame(a);
+}
+function spawnCoins(n) { for(var i=0;i<Math.min(n,5);i++) (function(d){setTimeout(function(){var e=document.createElement('div');e.className='coin-fly';e.textContent='🪙+1';e.style.left=(180+Math.random()*80)+'px';e.style.top='180px';document.body.appendChild(e);setTimeout(function(){e.remove()},1000);},d);})(i*150); }
+
+// ═══════════════════════════════════
+// Tab system
+// ═══════════════════════════════════
+var tabs = document.querySelectorAll('.tab');
+for (var i=0; i<tabs.length; i++) {
+  (function(t){
+    t.addEventListener('click', function(){
+      for (var j=0; j<tabs.length; j++) {
+        tabs[j].classList.remove('bg-white','text-rose-500','shadow-[0_1px_6px_rgba(180,140,120,0.08)]');
+        tabs[j].classList.add('bg-transparent','text-warm-400');
+      }
+      t.classList.add('bg-white','text-rose-500','shadow-[0_1px_6px_rgba(180,140,120,0.08)]');
+      t.classList.remove('bg-transparent','text-warm-400');
+      var pages = document.querySelectorAll('[id^=page-]');
+      for (var j=0; j<pages.length; j++) pages[j].classList.add('hidden');
+      $(t.dataset.page).classList.remove('hidden');
+      if (t.dataset.page === 'page-shop') renderShop();
+      if (t.dataset.page === 'page-collect') { renderCollect(); renderFloatFood(); }
+    });
+  })(tabs[i]);
+}
+
+// ═══════════════════════════════════
+// Debug
+// ═══════════════════════════════════
+var dv = false, dp = $('debug-panel'), di = $('debug-input');
+function toggleDebug() { dv = !dv; dp.classList.toggle('show', dv); if (dv) { di.value = S.coins; di.focus(); } }
+var dc = 0, dt = null;
+document.querySelector('#page-main .rounded-full').addEventListener('click', function(){ dc++; if (dt) clearTimeout(dt); dt = setTimeout(function(){dc=0;},600); if(dc>=3){dc=0;toggleDebug();} });
+document.addEventListener('keydown', function(e){ if((e.metaKey||e.ctrlKey)&&e.key==='d'){e.preventDefault();toggleDebug();} });
+$('debug-add-coins').onclick = function(){ S.coins += parseInt(di.value)||0; sv(); updateMain(); };
+$('debug-add-10m').onclick = function(){ S.totalMin += 10; sv(); updateMain(); };
+$('debug-add-60m').onclick = function(){ S.totalMin += 60; sv(); updateMain(); };
+$('debug-reset').onclick = function(){ 
+  if (confirm('重置所有数据？')) {
+    S = {coins:0,totalMin:0,streak:0,lastDate:'',ownedCats:['cat_0'],activeCat:'cat_0',feedCount:0,catNames:{'cat_0':'小橘'},catFullness:{'cat_0':100},food:{'food_1':0,'food_2':0,'food_3':0},lastTick:Date.now()};
+    sv(); updateMain(); renderShop(); renderCollect();
+  }
+};
+
+// ═══════════════════════════════════
+// Init
+// ═══════════════════════════════════
+ld(); updateMain();
+$('btn-start').onclick = start;
+$('btn-pause').onclick = pause;
+$('btn-reset').onclick = complete;
+setInterval(function(){ if (T.run && !T.pau) sv(); }, 5000);
+setInterval(function(){ updateFullness(); updateMain(); renderCollect(); }, 60000);
+console.log('🐱 喵·专注 正式版');
+</script>
+</body>
+</html>
